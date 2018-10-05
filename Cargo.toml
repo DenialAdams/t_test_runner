@@ -1,0 +1,13 @@
+[package]
+name = "test_runner"
+version = "0.1.0"
+authors = ["Richard McCormack <brick@brick.codes>"]
+edition = "2018"
+
+[dependencies]
+difference = "2"
+rayon = "1"
+termcolor = "1"
+
+[profile.release]
+lto = "yes"
