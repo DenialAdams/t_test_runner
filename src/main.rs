@@ -124,7 +124,7 @@ fn print_diff<W: WriteColor>(t: &mut W, diffs: &[Difference]) {
          Difference::Same(ref x) => {
             let _ = t.set_color(ColorSpec::new().set_fg(None).set_intense(false));
             writeln!(t, "{}", x);
-         },
+         }
          Difference::Add(ref x) => {
             let _ = t.set_color(ColorSpec::new().set_fg(Some(Color::Green)).set_intense(false));
             writeln!(t, "+{}", x);
@@ -150,8 +150,8 @@ fn test_result(tc_output: &Output, t_file_path: &Path, result_dir: &Path) -> Res
          let prog_output = Command::new(prog_path.clone()).output().unwrap();
          if prog_output.stdout != contents && prog_output.stderr != contents {
             let desired_result_text = String::from_utf8_lossy(&contents);
-            let prog_out_text = String::from_utf8_lossy(&prog_output.stdout)
-                 + String::from_utf8_lossy(&prog_output.stderr);
+            let prog_out_text =
+               String::from_utf8_lossy(&prog_output.stdout) + String::from_utf8_lossy(&prog_output.stderr);
             let changeset = Changeset::new(&desired_result_text, &prog_out_text, "\n");
             return Err(TestFailureReason::MismatchedExecutionOutput(changeset));
          }
