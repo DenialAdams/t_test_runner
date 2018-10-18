@@ -6,6 +6,7 @@ edition = "2018"
 
 [dependencies]
 difference = "2"
+os_pipe = "0.8"
 rayon = "1"
 termcolor = "1"
 

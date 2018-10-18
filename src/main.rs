@@ -8,6 +8,8 @@ use std::sync::Mutex;
 
 use difference::{Changeset, Difference};
 
+use os_pipe::pipe;
+
 use rayon::prelude::*;
 
 use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
@@ -139,19 +141,32 @@ fn print_diff<W: WriteColor>(t: &mut W, diffs: &[Difference]) {
 }
 
 fn test_result(tc_output: &Output, t_file_path: &Path, result_dir: &Path) -> Result<(), TestFailureReason> {
-   let mut contents = Vec::new();
+   let mut desired_result = String::new();
 
    if tc_output.stderr.is_empty() {
       let mut prog_path = t_file_path.to_path_buf();
       prog_path.set_extension("");
       let out_file = open_result_file(result_dir, t_file_path, "out");
       if let Ok(mut handle) = out_file {
-         handle.read_to_end(&mut contents).unwrap();
-         let prog_output = Command::new(prog_path.clone()).output().unwrap();
-         if prog_output.stdout != contents {
-            let desired_result_text = String::from_utf8_lossy(&contents);
-            let prog_out_text = String::from_utf8_lossy(&prog_output.stdout);
-            let changeset = Changeset::new(&desired_result_text, &prog_out_text, "\n");
+         handle.read_to_string(&mut desired_result).unwrap();
+         let mut prog_output = String::new();
+         {
+            let mut prog_command = Command::new(prog_path.clone());
+            // It's desirable to combine stdout and stderr, so an output test can test either or both
+            let mut prog_output_stream = {
+               let (reader, writer) = pipe().unwrap();
+               let writer_clone = writer.try_clone().unwrap();
+               prog_command.stdout(writer);
+               prog_command.stderr(writer_clone);
+               reader
+            };
+            let mut handle = prog_command.spawn().unwrap();
+            drop(prog_command);
+            prog_output_stream.read_to_string(&mut prog_output).unwrap();
+            handle.wait().unwrap();
+         };
+         if prog_output != desired_result {
+            let changeset = Changeset::new(&desired_result, &prog_output, "\n");
             return Err(TestFailureReason::MismatchedExecutionOutput(changeset));
          }
       } else {
@@ -161,11 +176,10 @@ fn test_result(tc_output: &Output, t_file_path: &Path, result_dir: &Path) -> Res
    } else {
       let err_file = open_result_file(result_dir, t_file_path, "err");
       if let Ok(mut handle) = err_file {
-         handle.read_to_end(&mut contents).unwrap();
-         if tc_output.stderr != contents {
-            let desired_result_text = String::from_utf8_lossy(&contents);
-            let stderr_text = String::from_utf8_lossy(&tc_output.stderr);
-            let changeset = Changeset::new(&desired_result_text, &stderr_text, " ");
+         handle.read_to_string(&mut desired_result).unwrap();
+         let stderr_text = String::from_utf8_lossy(&tc_output.stderr);
+         if stderr_text != desired_result {
+            let changeset = Changeset::new(&desired_result, &stderr_text, " ");
             return Err(TestFailureReason::MismatchedCompilationErrorOutput(changeset));
          }
       } else {
