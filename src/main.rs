@@ -179,7 +179,7 @@ fn test_result(tc_output: &Output, t_file_path: &Path, result_dir: &Path) -> Res
          handle.read_to_string(&mut desired_result).unwrap();
          let stderr_text = String::from_utf8_lossy(&tc_output.stderr);
          if stderr_text != desired_result {
-            let changeset = Changeset::new(&desired_result, &stderr_text, " ");
+            let changeset = Changeset::new(&desired_result, &stderr_text, "\n");
             return Err(TestFailureReason::MismatchedCompilationErrorOutput(changeset));
          }
       } else {
