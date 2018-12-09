@@ -46,7 +46,7 @@ fn main() -> Result<(), &'static str> {
    let mut result_dir = current_dir.clone();
    result_dir.push("results");
 
-   let output_mutex: Mutex<()> = Mutex::new(());
+   let output_mutex: Mutex<(u64, u64)> = Mutex::new((0, 0));
 
    let entries: Vec<PathBuf> = current_dir
       .read_dir()
@@ -63,9 +63,10 @@ fn main() -> Result<(), &'static str> {
          .output()
          .unwrap();
       let test_ok = test_result(&tc_output, &entry, &result_dir);
-      let _lock = output_mutex.lock().unwrap();
+      let mut lock = output_mutex.lock().unwrap();
       match test_ok {
          Ok(()) => {
+            lock.0 += 1;
             let stdout = StandardStream::stdout(ColorChoice::Auto);
             let mut out_handle = stdout.lock();
             let _ = out_handle.set_color(&reset_color);
@@ -75,6 +76,7 @@ fn main() -> Result<(), &'static str> {
             let _ = out_handle.set_color(&reset_color);
          }
          Err(reason) => {
+            lock.1 += 1;
             let stderr = StandardStream::stderr(ColorChoice::Auto);
             let mut out_handle = stderr.lock();
             let _ = out_handle.set_color(&reset_color);
@@ -116,6 +118,20 @@ fn main() -> Result<(), &'static str> {
          }
       }
    });
+
+   let stdout = StandardStream::stdout(ColorChoice::Auto);
+   let mut out_handle = stdout.lock();
+
+   let lock = output_mutex.lock().unwrap();
+
+   let _ = out_handle.set_color(&pass_color);
+   write!(&mut out_handle, "{} ", lock.0);
+   let _ = out_handle.set_color(&reset_color);
+   write!(&mut out_handle, "successes, ");
+   let _ = out_handle.set_color(&err_color);
+   write!(&mut out_handle, "{} ", lock.1);
+   let _ = out_handle.set_color(&reset_color);
+   writeln!(&mut out_handle, "failures");
 
    Ok(())
 }
